@@ -1,0 +1,37 @@
+# Baseline K-Means on Cardiac
+# Pixel-space K-Means clustering (non-neural baseline)
+# Exact hyperparameters from paper experiments
+
+experiment:
+  name: "cardiac_baseline_kmeans"
+  seed: 42
+  results_dir: "./results"
+
+model:
+  name: "baseline_kmeans"
+  latent_dim: 16384
+  num_clusters: 5
+
+dataset:
+  name: "cardiac"
+  root: "./data"
+  batch_size: 64
+  num_workers: 0
+  shuffle: false
+
+training:
+  epochs: 1
+  learning_rate: 0.001
+  device: "cpu"
+  eval_gmm_covariance: "diag"
+
+logging:
+  use_tqdm: true
+  log_interval: 10
+  save_metrics: true
+  visualization_interval: 10
+
+loss_weights:
+  reconstruction: 0.0
+  kl: 0.0
+  gmm: 0.0

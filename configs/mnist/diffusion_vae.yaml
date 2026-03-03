@@ -1,0 +1,50 @@
+# Diffusion-VAE on MNIST
+# Exact hyperparameters from paper experiments
+# Trains a latent-space denoiser on top of a frozen VAE-GMM
+
+experiment:
+  name: "mnist_diffusion_vae"
+  seed: 42
+  results_dir: "./results"
+
+model:
+  name: "diffusion_vae"
+  latent_dim: 10
+  num_clusters: 10
+
+dataset:
+  name: "mnist"
+  root: "./data"
+  batch_size: 1024
+  num_workers: 0
+  shuffle: true
+
+training:
+  epochs: 100
+  learning_rate: 0.001
+  device: "cuda"
+  eval_gmm_covariance: "diag"
+
+loss_weights:
+  reconstruction: 1.0
+  kl: 0.1
+  gmm: 1.0
+
+logging:
+  use_tqdm: true
+  log_interval: 10
+  save_metrics: true
+  visualization_interval: 10
+
+diffusion:
+  hidden_dim: 256
+  num_layers: 5
+  time_embed_dim: 32
+  timesteps: 100
+  schedule: "linear"
+  max_timestep: 5
+  n_mc: 50
+  iters: 20000
+  learning_rate: 0.001
+  batch_size: 256
+  eval_timesteps: [1, 2, 3, 5, 7, 10, 14]

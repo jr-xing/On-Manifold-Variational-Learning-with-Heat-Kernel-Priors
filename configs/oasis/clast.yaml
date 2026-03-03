@@ -1,0 +1,59 @@
+# CLAST (Laplacian) on OASIS
+# Exact hyperparameters from paper experiments
+
+experiment:
+  name: "oasis_clast"
+  seed: 42
+  results_dir: "./results"
+
+model:
+  name: "clast"
+  latent_dim: 32
+  num_clusters: 8
+
+dataset:
+  name: "oasis"
+  root: "./data"
+  batch_size: 32
+  num_workers: 0
+  shuffle: true
+
+training:
+  epochs: 150
+  learning_rate: 0.0001
+  weight_decay: 0.0005
+  device: "cuda"
+  grad_clip_max_norm: 5.0
+  best_checkpoint_metric: "gmm_loss"
+  eval_gmm_covariance: "diag"
+
+clast:
+  overwrite_epoch: 30
+  refit_n_init: 10
+  refit_covariance_type: "full"
+  refit_reg_covar: 0.0001
+  overwrite_ema_decay: null
+  atlas_method: "laplacian"
+  atlas_interval: 10
+  conf_thresh: 0.85
+  gamma_power: 2.0
+  atlas_robust: "median"
+  sample_topn_per_cluster: 32
+  geodesic_knn_k: 10
+  geodesic_max_points_per_cluster: 500
+  max_per_cluster_for_atlas: 1000
+  save_scheme_a_atlases: true
+  save_cluster_samples: true
+  save_refit_gmm_atlases: true
+  save_vae_prior_atlases: false
+
+loss_weights:
+  reconstruction: 1.0
+  kl: 0.5
+  gmm: 1.0
+
+logging:
+  use_tqdm: true
+  log_interval: 10
+  save_metrics: true
+  visualization_interval: 10

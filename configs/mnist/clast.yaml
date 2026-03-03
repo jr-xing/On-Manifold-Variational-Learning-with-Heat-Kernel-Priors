@@ -1,0 +1,57 @@
+# CLAST (Laplacian) on MNIST
+# Exact hyperparameters from paper experiments
+
+experiment:
+  name: "mnist_clast"
+  seed: 42
+  results_dir: "./results"
+
+model:
+  name: "clast"
+  latent_dim: 8
+  num_clusters: 10
+
+dataset:
+  name: "mnist"
+  root: "./data"
+  batch_size: 128
+  num_workers: 2
+  shuffle: true
+
+training:
+  epochs: 10
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  device: "cuda"
+  grad_clip_max_norm: 5.0
+
+clast:
+  overwrite_epoch: 20
+  refit_n_init: 10
+  refit_covariance_type: "full"
+  refit_reg_covar: 0.0001
+  overwrite_ema_decay: null
+  atlas_method: "laplacian"
+  atlas_interval: 5
+  conf_thresh: 0.90
+  gamma_power: 2.0
+  atlas_robust: "median"
+  sample_topn_per_cluster: 64
+  geodesic_knn_k: 10
+  geodesic_max_points_per_cluster: 800
+  max_per_cluster_for_atlas: 5000
+  save_scheme_a_atlases: true
+  save_cluster_samples: true
+  save_refit_gmm_atlases: true
+  save_vae_prior_atlases: true
+
+loss_weights:
+  reconstruction: 1.0
+  kl: 1.0
+  gmm: 1.0
+
+logging:
+  use_tqdm: true
+  log_interval: 10
+  save_metrics: true
+  visualization_interval: 10

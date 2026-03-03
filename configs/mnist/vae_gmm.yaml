@@ -1,0 +1,35 @@
+# VAE-GMM on MNIST
+# Exact hyperparameters from paper experiments
+
+experiment:
+  name: "mnist_vae_gmm"
+  seed: 42
+  results_dir: "./results"
+
+model:
+  name: "vae_gmm"
+  latent_dim: 10
+  num_clusters: 10
+
+dataset:
+  name: "mnist"
+  root: "./data"
+  batch_size: 1024
+  num_workers: 0
+  shuffle: true
+
+training:
+  epochs: 100
+  learning_rate: 0.001
+  device: "cuda"
+
+logging:
+  use_tqdm: true
+  log_interval: 10
+  save_metrics: true
+  visualization_interval: 10
+
+loss_weights:
+  reconstruction: 1.0
+  kl: 0.1
+  gmm: 1.0
