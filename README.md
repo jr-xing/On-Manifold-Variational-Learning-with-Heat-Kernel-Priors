@@ -1,24 +1,28 @@
-# VAE-Based Image Clustering with Geometric Priors
+# Deep Medical Image Clustering with Geometric Heat-Kernel Priors
 
-Official implementation for our MICCAI 2026 paper.
+Official implementation for our MICCAI 2026 submission 4033.
+
+> **ABSTRACT**: Unsupervised stratification of medical imaging cohorts can reveal clinically meaningful sub-populations without expert labels, which are often noisy and fail to capture true pathological heterogeneity. However, existing deep clustering methods estimate Gaussian mixture priors via Euclidean averaging, producing centroids that drift off the curved data manifold and suffer from component collapse as the number of clusters grows. We propose a manifold-aware Expectation-Maximization (EM) algorithm whose M-step selects each cluster prototype as the graph medoid with the highest diffusion centrality on a heat-kernel-weighted latent graph, ensuring that every prototype remains on-manifold. A Dirichlet energy regularizer enforces geometric smoothness across cluster boundaries, and a per-cluster uncertainty score enables label-free quality assessment. On cardiac scar and brain MRI benchmarks, our method achieves the highest clustering performance among all compared methods, produces the sharpest prototypes reported to date, and remains stable at large cluster counts where all baselines degenerate.
+
+![Main Figure](figures/netarch_c.svg)
 
 ## Models
 
 | Model | Description | Training Script |
 |-------|-------------|-----------------|
 | **VAE-GMM** | VAE with Gaussian Mixture Model prior | `train_vae_gmm.py` |
-| **CLAST** | Clustering with Latent Atlas Selection & Training | `train_clast.py` |
+| **Ours** | Clustering with Latent Atlas Selection & Training | `train_ours.py` |
 | **Diffusion-VAE** | VAE-GMM + latent-space diffusion denoiser | `train_diffusion.py` |
 | **Baseline GMM** | Pixel-space GMM clustering (non-neural) | `train_baseline.py` |
 | **Baseline K-Means** | Pixel-space K-Means clustering (non-neural) | `train_baseline.py` |
 
 ## Datasets
 
-| Dataset | Size | Classes | Type |
-|---------|------|---------|------|
-| MNIST | 28x28 | 10 digits | Supervised |
-| Cardiac LGE | 128x128 | 5 pathologies | Supervised |
-| OASIS Ventricle | 128x128 | 8 clusters | Unsupervised |
+| Dataset | Classes |
+|---------|------|
+| MNIST | 10 digits |
+| Cardiac LGE | 5 pathologies |
+| OASIS | 8 clusters |
 
 ## Setup
 
@@ -36,10 +40,10 @@ python train_vae_gmm.py --config configs/mnist/vae_gmm.yaml
 python train_vae_gmm.py --config configs/cardiac/vae_gmm.yaml
 python train_vae_gmm.py --config configs/oasis/vae_gmm.yaml
 
-# CLAST
-python train_clast.py --config configs/mnist/clast.yaml
-python train_clast.py --config configs/cardiac/clast.yaml
-python train_clast.py --config configs/oasis/clast.yaml
+# Ours
+python train_ours.py --config configs/mnist/ours.yaml
+python train_ours.py --config configs/cardiac/ours.yaml
+python train_ours.py --config configs/oasis/ours.yaml
 
 # Diffusion-VAE (two-phase: VAE training then denoiser)
 python train_diffusion.py --config configs/mnist/diffusion_vae.yaml
@@ -68,8 +72,8 @@ All training scripts accept:
 Fine-tune only the decoder for improved reconstruction sharpness:
 ```bash
 python finetune_decoder.py \
-    --config configs/oasis/clast.yaml \
-    --checkpoint checkpoints/oasis/clast/checkpoint_best.pth \
+    --config configs/oasis/ours.yaml \
+    --checkpoint checkpoints/oasis/ours/checkpoint_best.pth \
     --output_dir results/oasis_finetuned/ \
     --loss ssim --epochs 200 --lr 5e-5
 ```
@@ -83,9 +87,9 @@ python test.py --config configs/mnist/vae_gmm.yaml \
     --output_dir results/test_mnist_vae_gmm/
 
 # Unsupervised dataset (OASIS) - reports silhouette, CH, DB scores
-python test.py --config configs/oasis/clast.yaml \
-    --checkpoint checkpoints/oasis/clast/checkpoint_best.pth \
-    --output_dir results/test_oasis_clast/
+python test.py --config configs/oasis/ours.yaml \
+    --checkpoint checkpoints/oasis/ours/checkpoint_best.pth \
+    --output_dir results/test_oasis_ours/
 
 # With MC uncertainty estimation
 python test.py --config configs/cardiac/vae_gmm.yaml \
@@ -114,23 +118,23 @@ For each run, `test.py` generates:
 Pre-trained checkpoints are provided in `checkpoints/`:
 ```
 checkpoints/
-├── mnist/{vae_gmm,clast,diffusion_vae,baseline_gmm}/
-├── cardiac/{vae_gmm,clast,diffusion_vae,baseline_gmm,baseline_kmeans}/
-└── oasis/{vae_gmm,clast,diffusion_vae,baseline_gmm,baseline_kmeans}/
+├── mnist/{vae_gmm,ours,diffusion_vae,baseline_gmm}/
+├── cardiac/{vae_gmm,ours,diffusion_vae,baseline_gmm,baseline_kmeans}/
+└── oasis/{vae_gmm,ours,diffusion_vae,baseline_gmm,baseline_kmeans}/
 ```
 
 ## Project Structure
 
 ```
 ├── train_vae_gmm.py          # VAE-GMM training
-├── train_clast.py             # CLAST training
+├── train_ours.py             # OURS training
 ├── train_diffusion.py         # Diffusion-VAE training (two-phase)
 ├── train_baseline.py          # Baseline GMM/K-Means
 ├── finetune_decoder.py        # Post-training decoder fine-tuning
 ├── test.py                    # Unified evaluation & visualization
 ├── models/
 │   ├── vae_gmm/               # VAE with GMM prior
-│   ├── clast/                  # CLAST with atlas generation
+│   ├── ours/                  # Ours with atlas generation
 │   ├── diffusion_vae/          # VAE-GMM + latent denoiser
 │   ├── baseline_gmm/           # Pixel-space GMM
 │   └── baseline_kmeans/        # Pixel-space K-Means

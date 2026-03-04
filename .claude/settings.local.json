@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git config --local user.name)",
+      "Bash(git config --local user.email)"
+    ]
+  }
+}
