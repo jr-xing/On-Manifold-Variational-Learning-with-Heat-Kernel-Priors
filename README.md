@@ -18,11 +18,12 @@ Official implementation for our MICCAI 2026 submission 4033.
 
 ## Datasets
 
+
 | Dataset | Classes |
 |---------|------|
-| MNIST | 10 digits |
-| Cardiac LGE | 5 pathologies |
-| OASIS | 8 clusters |
+| MNIST | $10$ digits |
+| Cardiac LGE | $\geq 5$ pathologies |
+| OASIS Brain MRI | $K \in [8,15]$ clusters |
 
 ## Setup
 
