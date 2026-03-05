@@ -115,7 +115,7 @@ def load_model(config, model_type, checkpoint_path, device):
     if model_type == 'vae_gmm':
         from models.vae_gmm import get_model
     elif model_type == 'clast':
-        from models.clast import get_model
+        from models.ours import get_model
     elif model_type == 'diffusion_vae':
         from models.diffusion_vae import get_model
     elif model_type == 'baseline_gmm':

@@ -12,7 +12,7 @@ import numpy as np
 from pathlib import Path
 
 # Import core functions from CLAST atlas utilities
-from models.clast.atlas_utils import (
+from models.ours.atlas_utils import (
     sharpen_probs,
     ensure_dir,
     compute_cluster_purity,

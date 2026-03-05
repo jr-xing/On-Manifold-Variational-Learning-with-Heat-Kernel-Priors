@@ -29,10 +29,10 @@ from utils import (
 from utils.staged_training import StagedTrainingScheduler
 
 # Import CLAST model factory
-from models.clast import get_model
+from models.ours import get_model
 
 # Import CLAST-specific atlas utilities
-from models.clast.atlas_utils import (
+from models.ours.atlas_utils import (
     build_cluster_atlas_A,
     build_cluster_atlas_laplacian,
     build_cluster_atlas_geodesic_medoid,
