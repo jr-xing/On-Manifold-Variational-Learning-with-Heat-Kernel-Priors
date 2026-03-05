@@ -31,7 +31,20 @@ Official implementation for our MICCAI 2026 submission 4033.
 pip install -r requirements.txt
 ```
 
-MNIST auto-downloads on first run. Cardiac and OASIS data are included in `data/`.
+### Download Data and Pre-trained Checkpoints
+
+To reproduce the reported results (e.g., run the evaluation notebooks), download the data and pre-trained checkpoints from OSF:
+
+1. Go to the [OSF repository](https://osf.io/879yr/files/osfstorage?view_only=ee816762b1b74632a65e9eab1fe7a706)
+2. Download `data.zip` and `checkpoints.zip`
+3. Unzip them into the repository root:
+```bash
+unzip data.zip -d .
+unzip checkpoints.zip -d .
+```
+This will populate the `data/` and `checkpoints/` directories with the required dataset files and pre-trained model weights.
+
+> **Note:** MNIST auto-downloads on first run via torchvision, so it is not included in `data.zip`. Cardiac and OASIS data are included.
 
 ## Training
 
@@ -116,7 +129,7 @@ For each run, `test.py` generates:
 
 ## Pre-trained Checkpoints
 
-Pre-trained checkpoints are provided in `checkpoints/`:
+Pre-trained checkpoints are available for download from the [OSF repository](https://osf.io/879yr/files/osfstorage?view_only=ee816762b1b74632a65e9eab1fe7a706) (see [Setup](#setup) for download instructions). After unzipping, the directory structure is:
 ```
 checkpoints/
 ├── mnist/{vae_gmm,ours,diffusion_vae,baseline_gmm}/
