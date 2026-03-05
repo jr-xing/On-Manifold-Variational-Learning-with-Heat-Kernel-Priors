@@ -30,6 +30,9 @@ data/MNIST/
 *.swp
 *.swo
 
+# Debug logs (internal use only)
+debug/
+
 # OS
 .DS_Store
 Thumbs.db
