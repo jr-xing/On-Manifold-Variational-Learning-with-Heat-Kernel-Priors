@@ -8,7 +8,7 @@ experiment:
 
 model:
   name: "clast"
-  latent_dim: 8
+  latent_dim: 10
   num_clusters: 10
 
 dataset:

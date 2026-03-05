@@ -152,12 +152,14 @@ def load_model_and_config(dataset, model_name, device):
 # ---------------------------------------------------------------------------
 
 @torch.no_grad()
-def extract_features(model, model_type, data_loader, device):
+def extract_features(model, model_type, data_loader, device, collect_images=True):
     """
-    Extract features, labels, and raw images.
+    Extract features, labels, and (optionally) raw images.
+
+    For neural models, features are lexicographically sorted to match
+    the training evaluation protocol and ensure deterministic GMM fitting.
 
     Returns (z_data, labels, images).
-    images is a torch tensor for neural models, None for baselines.
     """
     if _is_neural(model_type):
         z_list, labels_list, img_list = [], [], []
@@ -166,35 +168,36 @@ def extract_features(model, model_type, data_loader, device):
             mu, _ = model.encode(batch)
             z_list.append(mu.cpu().numpy())
             labels_list.append(target.numpy())
-            img_list.append(batch.cpu())
+            if collect_images:
+                img_list.append(batch.cpu())
         z_data = np.vstack(z_list)
         labels = np.hstack(labels_list)
-        images = torch.cat(img_list, dim=0)
-        # Lexicographic sort for deterministic GMM
+        images = torch.cat(img_list, dim=0) if collect_images else None
+        # Lexicographic sort for deterministic GMM initialization —
+        # must match the training evaluation protocol.
         idx = np.lexsort(z_data.T[::-1])
-        return z_data[idx], labels[idx], images[idx]
+        z_data = z_data[idx]
+        labels = labels[idx]
+        if images is not None:
+            images = images[idx]
+        return z_data, labels, images
     else:
         z_data, labels = model.extract_latent_features(data_loader, device)
-        # Collect images separately
-        img_list = []
-        for batch, _ in data_loader:
-            img_list.append(batch)
-        images = torch.cat(img_list, dim=0)
-        # images are not sorted the same way as z_data for baselines;
-        # we need to collect labels in order to match
-        lab_list = []
-        for _, target in data_loader:
-            lab_list.append(target.numpy())
-        raw_labels = np.hstack(lab_list)
+        images = None
+        if collect_images:
+            img_list = []
+            for batch, _ in data_loader:
+                img_list.append(batch)
+            images = torch.cat(img_list, dim=0)
         return z_data, labels, images
 
 
-def fit_gmm(z_data, num_clusters, covariance_type='full'):
+def fit_gmm(z_data, num_clusters, covariance_type='full', n_init=10):
     """Fit sklearn GMM, return (gmm, cluster_labels)."""
     gmm = GaussianMixture(
         n_components=num_clusters,
         covariance_type=covariance_type,
-        n_init=10,
+        n_init=n_init,
         random_state=0,
         reg_covar=1e-4,
     )
@@ -206,36 +209,64 @@ def fit_gmm(z_data, num_clusters, covariance_type='full'):
 # Inference pipeline
 # ---------------------------------------------------------------------------
 
-def run_inference(model, model_type, config, data_loader, device, denoise_t=None):
+def run_inference(model, model_type, config, train_loader, test_loader, device,
+                  denoise_t=None):
     """
     Full inference pipeline for one model.
+
+    GMM is fit on **training** data and used to predict cluster labels on
+    **test** data.  This matches the evaluation protocol used during training
+    (see train_ours.py) and produces metrics consistent with the paper.
 
     Returns dict with keys:
         z_data, labels, images, gmm, cluster_labels, num_clusters, model_type
     """
-    dataset_name = config['dataset']['name']
     num_clusters = config['model']['num_clusters']
-    covariance_type = config['training'].get('eval_gmm_covariance', 'full')
+    # Use full covariance for neural models (low-dim latent space) —
+    # captures feature correlations and gives significantly better accuracy.
+    # Use diag for baselines (high-dim pixel space) where full is too slow.
+    is_baseline = model_type in ('baseline_gmm', 'baseline_kmeans')
+    covariance_type = 'diag' if is_baseline else 'full'
 
     if model_type == 'diffusion_vae' and denoise_t is not None:
-        # Use denoised latents
         n_mc = config.get('diffusion', {}).get('n_mc', 50)
-        z_data, labels = model.extract_denoised_latent_features(
-            data_loader, device, denoise_t=denoise_t, n_mc=n_mc
+        # Denoised features for train set (GMM fitting)
+        z_train, _ = model.extract_denoised_latent_features(
+            train_loader, device, denoise_t=denoise_t, n_mc=n_mc
         )
-        # Also collect images
+        # Denoised features for test set (prediction)
+        z_test, labels_test = model.extract_denoised_latent_features(
+            test_loader, device, denoise_t=denoise_t, n_mc=n_mc
+        )
+        # Collect test images
         img_list = []
-        for batch, _ in data_loader:
+        for batch, _ in test_loader:
             img_list.append(batch)
         images = torch.cat(img_list, dim=0)
+    elif is_baseline:
+        # Baselines operate in high-dim pixel space — fitting on full
+        # training set is too slow, so fit+predict on test data only.
+        z_test, labels_test, images = extract_features(
+            model, model_type, test_loader, device, collect_images=True
+        )
+        z_train = z_test
     else:
-        z_data, labels, images = extract_features(model, model_type, data_loader, device)
+        # Neural models: fit GMM on training data, predict on test data
+        z_train, _, _ = extract_features(
+            model, model_type, train_loader, device, collect_images=False
+        )
+        z_test, labels_test, images = extract_features(
+            model, model_type, test_loader, device, collect_images=True
+        )
 
-    gmm, cluster_labels = fit_gmm(z_data, num_clusters, covariance_type)
+    # Fit GMM on train data (or test data for baselines), predict on test data
+    n_init = 1 if is_baseline else 10
+    gmm, _ = fit_gmm(z_train, num_clusters, covariance_type, n_init=n_init)
+    cluster_labels = gmm.predict(z_test)
 
     return {
-        'z_data': z_data,
-        'labels': labels,
+        'z_data': z_test,
+        'labels': labels_test,
         'images': images,
         'gmm': gmm,
         'cluster_labels': cluster_labels,
@@ -249,8 +280,10 @@ def run_all_models(dataset, model_names, device, verbose=True):
     """
     Run inference for all models on a dataset.
 
+    GMM is fit on training data and used to predict on test data.
+
     Returns dict: {model_name: result_dict}.
-    Also returns (train_loader, test_loader, dataset_info) from the first model.
+    Also returns (test_loader, dataset_info).
     """
     results = {}
     loaders = None
@@ -273,19 +306,20 @@ def run_all_models(dataset, model_names, device, verbose=True):
             eval_config['dataset'] = dict(config['dataset'])
             eval_config['dataset']['shuffle'] = False
             eval_config['dataset']['num_workers'] = 0
-            _, test_loader, dataset_info = get_data_loaders(eval_config)
-            loaders = (test_loader, dataset_info)
-        test_loader, dataset_info = loaders
+            train_loader, test_loader, dataset_info = get_data_loaders(eval_config)
+            loaders = (train_loader, test_loader, dataset_info)
+        train_loader, test_loader, dataset_info = loaders
 
         denoise_t = BEST_DENOISE_T.get(dataset) if model_type == 'diffusion_vae' else None
-        result = run_inference(model, model_type, config, test_loader, device, denoise_t)
+        result = run_inference(model, model_type, config, train_loader, test_loader,
+                               device, denoise_t)
         result['display_name'] = MODEL_DISPLAY_NAMES.get(name, name)
         results[name] = result
 
         if verbose:
             print("done")
 
-    return results, loaders
+    return results, (test_loader, dataset_info)
 
 
 # ---------------------------------------------------------------------------
