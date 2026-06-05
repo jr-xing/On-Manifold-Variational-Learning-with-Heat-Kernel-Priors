@@ -7,7 +7,7 @@ Rationale:
   latent clustering; fine-tuning the decoder makes decode(GMM.means_) produce
   sharper outputs (e.g., for paper figures).
 
-Supports all neural model types: vae_gmm, clast, diffusion_vae.
+Supports all neural model types: vae_gmm, ours, diffusion_vae.
 
 Loss options:
   - mse:  Mean Squared Error
@@ -16,8 +16,8 @@ Loss options:
   - ssim: Differentiable SSIM (1 - SSIM)
 
 Usage:
-  python finetune_decoder.py --config configs/oasis/clast.yaml \
-      --checkpoint checkpoints/oasis/clast/checkpoint_best.pth \
+  python finetune_decoder.py --config configs/oasis/ours.yaml \
+      --checkpoint checkpoints/oasis/ours/checkpoint_best.pth \
       --output_dir results/oasis_finetuned/ \
       --loss ssim --epochs 200 --lr 5e-5
 
@@ -157,14 +157,14 @@ def detect_model_type(config):
     model_name = config['model']['name']
     if 'diffusion_vae' in model_name:
         return 'diffusion_vae'
-    elif 'clast' in model_name:
-        return 'clast'
+    elif 'ours' in model_name:
+        return 'ours'
     elif 'vae_gmm' in model_name:
         return 'vae_gmm'
     else:
         raise ValueError(
             f"Decoder fine-tuning is only supported for neural models "
-            f"(vae_gmm, clast, diffusion_vae). Got: {model_name}"
+            f"(vae_gmm, ours, diffusion_vae). Got: {model_name}"
         )
 
 
@@ -172,7 +172,7 @@ def load_model_and_checkpoint(config, model_type, checkpoint_path, device):
     """Instantiate model and load checkpoint weights."""
     if model_type == 'vae_gmm':
         from models.vae_gmm import get_model
-    elif model_type == 'clast':
+    elif model_type == 'ours':
         from models.ours import get_model
     elif model_type == 'diffusion_vae':
         from models.diffusion_vae import get_model
@@ -373,8 +373,9 @@ def main():
     log(f"  {mu_all.shape[0]} samples, latent_dim={mu_all.shape[1]}")
 
     # ── GMM parameters for decoding means ──
-    gmm_cov_type = config.get('clast', {}).get('refit_covariance_type', 'full')
-    gmm_reg = config.get('clast', {}).get('refit_reg_covar', 1e-4)
+    ours_config = config.get('ours', {})
+    gmm_cov_type = ours_config.get('refit_covariance_type', 'full')
+    gmm_reg = ours_config.get('refit_reg_covar', 1e-4)
 
     # ── Before: decode GMM means ──
     log("\nDecoding GMM means (before fine-tuning) ...")

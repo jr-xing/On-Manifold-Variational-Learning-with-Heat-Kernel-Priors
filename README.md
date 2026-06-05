@@ -81,7 +81,7 @@ All training scripts accept:
 --device STR         Override device (cuda/cpu)
 ```
 
-### Decoder fine-tuning (CLAST)
+### Decoder fine-tuning (Ours)
 
 Fine-tune only the decoder for improved reconstruction sharpness:
 ```bash
@@ -134,14 +134,16 @@ Pre-trained checkpoints are available for download from the [OSF repository](htt
 checkpoints/
 ├── mnist/{vae_gmm,ours,diffusion_vae,baseline_gmm}/
 ├── cardiac/{vae_gmm,ours,diffusion_vae,baseline_gmm,baseline_kmeans}/
-└── oasis/{vae_gmm,ours,diffusion_vae,baseline_gmm,baseline_kmeans}/
+└── oasis/{vae_gmm,ours,diffusion_vae}/
 ```
+
+Classical baseline models are small and deterministic to refit from their YAML configs. The bundle includes the reported MNIST GMM and cardiac GMM/K-Means baseline checkpoints; MNIST K-Means and OASIS classical baselines are expected to be refit with `train_baseline.py`.
 
 ## Project Structure
 
 ```
 ├── train_vae_gmm.py          # VAE-GMM training
-├── train_ours.py             # OURS training
+├── train_ours.py             # Ours training
 ├── train_diffusion.py         # Diffusion-VAE training (two-phase)
 ├── train_baseline.py          # Baseline GMM/K-Means
 ├── finetune_decoder.py        # Post-training decoder fine-tuning

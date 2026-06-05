@@ -1,5 +1,5 @@
 """
-Core CLAST (Clustering with Latent Atlas Selection & Training) model.
+Core Ours (Clustering with Latent Atlas Selection & Training) model.
 StaticGMMVAE with learnable GMM prior and GMM overwriting capability.
 """
 

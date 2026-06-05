@@ -1,40 +1,39 @@
-# CLAST (Laplacian) on OASIS
+# Ours (Laplacian) on Cardiac
 # Exact hyperparameters from paper experiments
 
 experiment:
-  name: "oasis_clast"
+  name: "cardiac_ours"
   seed: 42
   results_dir: "./results"
 
 model:
-  name: "clast"
-  latent_dim: 32
-  num_clusters: 8
+  name: "ours"
+  latent_dim: 16
+  num_clusters: 5
 
 dataset:
-  name: "oasis"
+  name: "cardiac"
   root: "./data"
-  batch_size: 32
-  num_workers: 0
+  batch_size: 64
+  num_workers: 2
   shuffle: true
 
 training:
-  epochs: 150
-  learning_rate: 0.0001
+  epochs: 100
+  learning_rate: 0.001
   weight_decay: 0.0005
   device: "cuda"
   grad_clip_max_norm: 5.0
-  best_checkpoint_metric: "gmm_loss"
   eval_gmm_covariance: "diag"
 
-clast:
+ours:
   overwrite_epoch: 30
-  refit_n_init: 10
+  refit_n_init: 20
   refit_covariance_type: "full"
   refit_reg_covar: 0.0001
   overwrite_ema_decay: null
   atlas_method: "laplacian"
-  atlas_interval: 10
+  atlas_interval: 5
   conf_thresh: 0.85
   gamma_power: 2.0
   atlas_robust: "median"

@@ -6,7 +6,7 @@ and generates visualizations (cluster means, reconstructions, t-SNE, purity).
 
 Supports:
   - vae_gmm: VAE with Gaussian Mixture Model prior
-  - clast: Clustering with Latent Atlas Selection & Training
+  - ours: Our manifold-aware atlas clustering model
   - diffusion_vae: VAE-GMM with latent-space diffusion denoiser
   - baseline_gmm: Pixel-space GMM clustering (non-neural)
   - baseline_kmeans: Pixel-space K-Means clustering (non-neural)
@@ -17,9 +17,9 @@ Usage:
       --output_dir results/test_vae_gmm/
 
   # With MC uncertainty estimation
-  python test.py --config configs/cardiac/clast.yaml \
-      --checkpoint checkpoints/cardiac/clast/checkpoint_best.pth \
-      --output_dir results/test_clast/ \
+  python test.py --config configs/cardiac/ours.yaml \
+      --checkpoint checkpoints/cardiac/ours/checkpoint_best.pth \
+      --output_dir results/test_ours/ \
       --uncertainty --n_mc 30
 
   # Override GMM covariance type
@@ -61,7 +61,7 @@ from utils.visualization import plot_reconstructions, plot_latent_space
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='Unified evaluation for VAE-GMM, CLAST, Diffusion-VAE, and baseline models',
+        description='Unified evaluation for VAE-GMM, ours, Diffusion-VAE, and baseline models',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument('--config', type=str, required=True,
@@ -98,8 +98,8 @@ def detect_model_type(config):
     model_name = config['model']['name']
     if 'diffusion_vae' in model_name:
         return 'diffusion_vae'
-    elif 'clast' in model_name:
-        return 'clast'
+    elif 'ours' in model_name:
+        return 'ours'
     elif 'vae_gmm' in model_name:
         return 'vae_gmm'
     elif 'baseline_gmm' in model_name:
@@ -114,7 +114,7 @@ def load_model(config, model_type, checkpoint_path, device):
     """Instantiate model from config and load checkpoint weights."""
     if model_type == 'vae_gmm':
         from models.vae_gmm import get_model
-    elif model_type == 'clast':
+    elif model_type == 'ours':
         from models.ours import get_model
     elif model_type == 'diffusion_vae':
         from models.diffusion_vae import get_model
@@ -142,7 +142,7 @@ def load_model(config, model_type, checkpoint_path, device):
 
 def is_neural_model(model_type):
     """Return True for models that have encoder/decoder (not pixel-space baselines)."""
-    return model_type in ('vae_gmm', 'clast', 'diffusion_vae')
+    return model_type in ('vae_gmm', 'ours', 'diffusion_vae')
 
 
 def is_supervised_dataset(dataset_name):

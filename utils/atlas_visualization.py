@@ -1,7 +1,7 @@
 """
 Model-agnostic atlas visualization utilities.
 
-This module provides wrappers around models.vae_clast.atlas_utils functions
+This module provides wrappers around atlas utility functions
 to make them compatible with any VAE-GMM model variant.
 """
 
@@ -11,7 +11,7 @@ import torch.nn.functional as F
 import numpy as np
 from pathlib import Path
 
-# Import core functions from CLAST atlas utilities
+# Import core atlas utility functions
 from models.ours.atlas_utils import (
     sharpen_probs,
     ensure_dir,

@@ -1,5 +1,5 @@
 """
-Cardiac encoder (128×128 images) for CLAST model.
+Cardiac encoder (128×128 images) for Ours model.
 5-stage downsampling: 128×128 → 64×64 → 32×32 → 16×16 → 8×8 → 4×4
 """
 

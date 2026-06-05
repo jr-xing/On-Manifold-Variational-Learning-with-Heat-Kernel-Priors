@@ -1,14 +1,13 @@
 """
-CLAST training script.
+Training script for our manifold-aware atlas clustering model.
 
-CLAST (Clustering with Latent Atlas Selection & Training) requires unique
-per-epoch operations including GMM refitting, conditional overwriting, and
-multiple types of atlas generation.
+Our method requires unique per-epoch operations including GMM refitting,
+conditional overwriting, and multiple types of atlas generation.
 
 Usage:
-    python train_clast.py --config configs/mnist/clast_mnist.yaml
-    python train_clast.py --config configs/cardiac/clast_cardiac.yaml --epochs 50
-    python train_clast.py --config configs/cardiac/clast_cardiac.yaml --pretrain_checkpoint checkpoints/vae_gmm_cardiac.pth
+    python train_ours.py --config configs/mnist/ours.yaml
+    python train_ours.py --config configs/cardiac/ours.yaml --epochs 50
+    python train_ours.py --config configs/cardiac/ours.yaml --pretrain_checkpoint checkpoints/cardiac/vae_gmm/checkpoint_best.pth
 """
 
 import argparse
@@ -28,10 +27,10 @@ from utils import (
 )
 from utils.staged_training import StagedTrainingScheduler
 
-# Import CLAST model factory
+# Import model factory
 from models.ours import get_model
 
-# Import CLAST-specific atlas utilities
+# Import atlas utilities
 from models.ours.atlas_utils import (
     build_cluster_atlas_A,
     build_cluster_atlas_laplacian,
@@ -56,8 +55,8 @@ def set_seed(seed):
     torch.backends.cudnn.benchmark = False
 
 
-def parse_clast_args():
-    """Parse CLAST-specific CLI arguments not handled by get_config()."""
+def parse_ours_args():
+    """Parse method-specific CLI arguments not handled by get_config()."""
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument('--pretrain_checkpoint', type=str, default=None,
                         help='Path to pretrained VAE checkpoint for transfer learning')
@@ -100,7 +99,7 @@ def train_epoch(model, data_loader, optimizer, device, config, epoch, logger):
         # Backward pass
         loss_dict['total_loss'].backward()
 
-        # Gradient clipping (important for CLAST stability)
+        # Gradient clipping is important for stability with atlas updates.
         if 'grad_clip_max_norm' in config['training']:
             torch.nn.utils.clip_grad_norm_(
                 model.parameters(),
@@ -161,10 +160,10 @@ def compute_gmm_probabilities(model, z_data_torch):
     return probs.cpu().numpy()
 
 
-def clast_epoch_operations(model, train_loader, test_loader, device, config,
+def ours_epoch_operations(model, train_loader, test_loader, device, config,
                            epoch, results_dir, dataset_info):
     """
-    CLAST-specific per-epoch operations.
+    Method-specific per-epoch operations.
 
     Performs:
     1. Collect embeddings from train and test sets (single-pass, lexsorted)
@@ -221,9 +220,9 @@ def clast_epoch_operations(model, train_loader, test_loader, device, config,
     # 2. Refit GMM on train embeddings
     gmm = GaussianMixture(
         n_components=config['model']['num_clusters'],
-        covariance_type=config['clast']['refit_covariance_type'],
-        n_init=config['clast']['refit_n_init'],
-        reg_covar=config['clast']['refit_reg_covar'],
+        covariance_type=config['ours']['refit_covariance_type'],
+        n_init=config['ours']['refit_n_init'],
+        reg_covar=config['ours']['refit_reg_covar'],
         random_state=0
     )
     gmm.fit(z_train)
@@ -236,12 +235,12 @@ def clast_epoch_operations(model, train_loader, test_loader, device, config,
     test_metrics = compute_metrics(y_test, test_pred)
 
     # 4. GMM overwriting (conditional at specific epoch)
-    if epoch == config['clast']['overwrite_epoch']:
+    if epoch == config['ours']['overwrite_epoch']:
         logger_msg = f"[Epoch {epoch}] Overwriting VAE prior with refitted GMM"
         print(f"\n{logger_msg}")
         model.overwrite_gmm_from_sklearn(
             gmm,
-            ema_decay=config['clast']['overwrite_ema_decay']
+            ema_decay=config['ours']['overwrite_ema_decay']
         )
 
     # Compute GMM probabilities (needed for atlas generation and cluster samples)
@@ -249,46 +248,46 @@ def clast_epoch_operations(model, train_loader, test_loader, device, config,
     probs = gmm.predict_proba(z_train)
 
     # 5. Atlas generation (every atlas_interval epochs)
-    if epoch % config['clast']['atlas_interval'] == 0:
+    if epoch % config['ours']['atlas_interval'] == 0:
         print(f"[Epoch {epoch}] Generating atlases...")
 
         # Scheme-A atlas (pixel-space robust median/mean)
-        if config['clast'].get('save_scheme_a_atlases', True):
+        if config['ours'].get('save_scheme_a_atlases', True):
             atlas_A = build_cluster_atlas_A(
                 X_train.cpu(), probs,
-                config['clast']['conf_thresh'],
-                config['clast']['gamma_power'],
-                config['clast']['atlas_robust'],
-                config['clast']['sample_topn_per_cluster'],
-                config['clast']['max_per_cluster_for_atlas']
+                config['ours']['conf_thresh'],
+                config['ours']['gamma_power'],
+                config['ours']['atlas_robust'],
+                config['ours']['sample_topn_per_cluster'],
+                config['ours']['max_per_cluster_for_atlas']
             )
             save_atlas_A_images(atlas_A, results_dir / 'atlas_A', epoch)
 
         # Manifold atlas (method-dependent)
-        if config['clast']['atlas_method'] == 'laplacian':
+        if config['ours']['atlas_method'] == 'laplacian':
             atlas_manifold = build_cluster_atlas_laplacian(
                 model, z_train, probs,
-                config['clast']['conf_thresh'],
-                config['clast']['gamma_power'],
-                config['clast']['geodesic_knn_k'],
-                config['clast']['geodesic_max_points_per_cluster']
+                config['ours']['conf_thresh'],
+                config['ours']['gamma_power'],
+                config['ours']['geodesic_knn_k'],
+                config['ours']['geodesic_max_points_per_cluster']
             )
             save_atlas_laplacian_images(atlas_manifold, results_dir / 'atlas_laplacian', epoch)
 
-        elif config['clast']['atlas_method'] == 'geodesic':
+        elif config['ours']['atlas_method'] == 'geodesic':
             atlas_manifold = build_cluster_atlas_geodesic_medoid(
                 model, z_train, probs,
-                config['clast']['conf_thresh'],
-                config['clast']['gamma_power'],
-                config['clast']['geodesic_knn_k'],
-                config['clast']['geodesic_max_points_per_cluster'],
+                config['ours']['conf_thresh'],
+                config['ours']['gamma_power'],
+                config['ours']['geodesic_knn_k'],
+                config['ours']['geodesic_max_points_per_cluster'],
                 seed=config['experiment']['seed'],
                 epoch=epoch
             )
             save_atlas_geodesic_images(atlas_manifold, results_dir / 'atlas_geodesic', epoch)
 
         # Refit GMM means atlas
-        if config['clast'].get('save_refit_gmm_atlases', True):
+        if config['ours'].get('save_refit_gmm_atlases', True):
             save_refit_gmm_means_atlas(
                 model, gmm,
                 results_dir / 'atlas_refit_means',
@@ -296,7 +295,7 @@ def clast_epoch_operations(model, train_loader, test_loader, device, config,
             )
 
         # VAE prior means atlas (disabled by default - training artifact)
-        if config['clast'].get('save_vae_prior_atlases', False):
+        if config['ours'].get('save_vae_prior_atlases', False):
             save_vae_prior_means_atlas(
                 model, results_dir / 'atlas_vae_prior', epoch, nrow=3
             )
@@ -313,13 +312,13 @@ def clast_epoch_operations(model, train_loader, test_loader, device, config,
     purity_df.to_csv(purity_csv_path, index=False)
 
     # 7. Cluster sample grids (every epoch)
-    if config['clast'].get('save_cluster_samples', True):
+    if config['ours'].get('save_cluster_samples', True):
         save_cluster_sample_grids(
             model, X_train, y_train, probs,
-            config['clast']['conf_thresh'],
+            config['ours']['conf_thresh'],
             results_dir / 'cluster_samples',
             epoch, dataset_info['class_names'],
-            config['clast']['sample_topn_per_cluster'],
+            config['ours']['sample_topn_per_cluster'],
             nrow=8
         )
 
@@ -362,16 +361,15 @@ def clast_epoch_operations(model, train_loader, test_loader, device, config,
 
 
 def main():
-    """Main CLAST training function."""
-    # Parse CLAST-specific CLI args
-    clast_args = parse_clast_args()
+    """Main training function."""
+    # Parse method-specific CLI args
+    ours_args = parse_ours_args()
 
     # Get configuration (handles --config, --output_dir, --epochs, --batch_size, --lr, --seed, --device)
     config = get_config()
-
-    # Apply CLAST-specific CLI overrides
-    if clast_args.pretrain_checkpoint is not None:
-        config['pretrain_checkpoint'] = clast_args.pretrain_checkpoint
+    # Apply method-specific CLI overrides
+    if ours_args.pretrain_checkpoint is not None:
+        config['pretrain_checkpoint'] = ours_args.pretrain_checkpoint
 
     # Set random seed
     set_seed(config['experiment']['seed'])
@@ -391,7 +389,7 @@ def main():
     else:
         # Use output_dir if specified, otherwise auto-generate timestamped dir
         output_dir = config['experiment'].get('results_dir', './results')
-        experiment_name = f"clast_{config['dataset']['name']}"
+        experiment_name = f"ours_{config['dataset']['name']}"
         results_dir = setup_results_dir(output_dir, experiment_name)
         print(f"\nResults will be saved to: {results_dir}")
         save_config(config, str(results_dir / 'config.yaml'))
@@ -438,16 +436,16 @@ def main():
 
     # Log configuration
     logger.log_message("=" * 60)
-    logger.log_message("CLAST Training Configuration")
+    logger.log_message("Ours Training Configuration")
     logger.log_message("=" * 60)
     logger.log_message(f"Dataset: {config['dataset']['name']}")
-    logger.log_message(f"Atlas method: {config['clast']['atlas_method']}")
+    logger.log_message(f"Atlas method: {config['ours']['atlas_method']}")
     logger.log_message(f"Epochs: {config['training']['epochs']}")
     logger.log_message(f"Batch size: {config['dataset']['batch_size']}")
     logger.log_message(f"Learning rate: {config['training']['learning_rate']}")
     logger.log_message(f"Latent dim: {config['model']['latent_dim']}")
     logger.log_message(f"Num clusters: {config['model']['num_clusters']}")
-    logger.log_message(f"GMM overwrite epoch: {config['clast']['overwrite_epoch']}")
+    logger.log_message(f"GMM overwrite epoch: {config['ours']['overwrite_epoch']}")
 
     # Log transfer learning / staged training configuration
     if config.get('pretrain_checkpoint') is not None:
@@ -461,9 +459,9 @@ def main():
     output_subdirs = [
         'atlas_A', 'atlas_refit_means', 'atlas_vae_prior', 'cluster_samples'
     ]
-    if config['clast']['atlas_method'] == 'laplacian':
+    if config['ours']['atlas_method'] == 'laplacian':
         output_subdirs.append('atlas_laplacian')
-    elif config['clast']['atlas_method'] == 'geodesic':
+    elif config['ours']['atlas_method'] == 'geodesic':
         output_subdirs.append('atlas_geodesic')
 
     for subdir in output_subdirs:
@@ -550,14 +548,14 @@ def main():
             model, train_loader, optimizer, device, config, epoch, logger
         )
 
-        # CLAST operations
-        clast_metrics = clast_epoch_operations(
+        # Method-specific atlas/GMM operations
+        ours_metrics = ours_epoch_operations(
             model, train_loader, test_loader, device, config,
             epoch, results_dir, dataset_info
         )
 
         # Combine metrics
-        all_metrics = {**train_metrics, **clast_metrics}
+        all_metrics = {**train_metrics, **ours_metrics}
 
         # Log metrics
         logger.log_metrics(epoch, all_metrics)

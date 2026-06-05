@@ -33,7 +33,7 @@ MODEL_DISPLAY_NAMES = {
     'baseline_gmm': 'Baseline GMM',
     'vae_gmm': 'VAE-GMM',
     'diffusion_vae': 'Diffusion-VAE',
-    'clast': 'Ours',
+    'ours': 'Ours',
 }
 
 # Best denoising timesteps (from reference experiments)
@@ -63,8 +63,15 @@ def _fill_defaults(config):
 def _get_config(dataset, model_name):
     """Load and fill config for a dataset/model pair."""
     config_path = PROJECT_ROOT / 'configs' / dataset / f'{model_name}.yaml'
-    config = load_yaml_config(str(config_path))
-    config = _fill_defaults(config)
+    raw_config = load_yaml_config(str(config_path))
+    # Remember which training keys were explicitly set in the YAML
+    explicit_training = set(raw_config.get('training', {}).keys())
+    config = _fill_defaults(raw_config)
+    # Remove default-filled eval_gmm_covariance so run_inference can
+    # default to 'full' (better for low-dim latent spaces).  Configs
+    # that explicitly set it (e.g. cardiac → 'diag') are preserved.
+    if 'eval_gmm_covariance' not in explicit_training:
+        config.get('training', {}).pop('eval_gmm_covariance', None)
     # Resolve data root to absolute path relative to project root
     data_root = config['dataset'].get('root', './data')
     if not os.path.isabs(data_root):
@@ -80,8 +87,8 @@ def _detect_model_type(model_name):
     """Map config model name to model type string."""
     if 'diffusion_vae' in model_name:
         return 'diffusion_vae'
-    elif model_name in ('clast', 'ours'):
-        return 'clast'
+    elif model_name == 'ours':
+        return 'ours'
     elif 'vae_gmm' in model_name:
         return 'vae_gmm'
     elif 'baseline_gmm' in model_name:
@@ -92,7 +99,7 @@ def _detect_model_type(model_name):
 
 
 def _is_neural(model_type):
-    return model_type in ('vae_gmm', 'clast', 'diffusion_vae')
+    return model_type in ('vae_gmm', 'ours', 'diffusion_vae')
 
 
 def load_model_and_config(dataset, model_name, device):
@@ -107,7 +114,7 @@ def load_model_and_config(dataset, model_name, device):
     # Import the right factory
     if model_type == 'vae_gmm':
         from models.vae_gmm import get_model
-    elif model_type == 'clast':
+    elif model_type == 'ours':
         from models.ours import get_model
     elif model_type == 'diffusion_vae':
         from models.diffusion_vae import get_model
@@ -222,46 +229,57 @@ def run_inference(model, model_type, config, train_loader, test_loader, device,
         z_data, labels, images, gmm, cluster_labels, num_clusters, model_type
     """
     num_clusters = config['model']['num_clusters']
-    # Use full covariance for neural models (low-dim latent space) —
-    # captures feature correlations and gives significantly better accuracy.
-    # Use diag for baselines (high-dim pixel space) where full is too slow.
+    # Covariance type must match the training evaluation protocol.
+    # Ours uses its own refit config; VAE-GMM/Diffusion read from training config.
+    # Baselines use diag (high-dim pixel space where full is impractical).
     is_baseline = model_type in ('baseline_gmm', 'baseline_kmeans')
-    covariance_type = 'diag' if is_baseline else 'full'
+    if is_baseline:
+        covariance_type = 'diag'
+    elif model_type == 'ours':
+        ours_config = config.get('ours', {})
+        covariance_type = ours_config.get('refit_covariance_type', 'full')
+    else:
+        covariance_type = config.get('training', {}).get('eval_gmm_covariance', 'full')
+
+    # Ours refits its GMM on training data (see train_ours.py).
+    # VAE-GMM / Diffusion-VAE final test evaluation fits on test data
+    # (see train.py / train_diffusion.py evaluate_clustering with test_loader).
+    fit_on_train = (model_type == 'ours')
 
     if model_type == 'diffusion_vae' and denoise_t is not None:
         n_mc = config.get('diffusion', {}).get('n_mc', 50)
-        # Denoised features for train set (GMM fitting)
-        z_train, _ = model.extract_denoised_latent_features(
-            train_loader, device, denoise_t=denoise_t, n_mc=n_mc
-        )
-        # Denoised features for test set (prediction)
         z_test, labels_test = model.extract_denoised_latent_features(
             test_loader, device, denoise_t=denoise_t, n_mc=n_mc
         )
-        # Collect test images
         img_list = []
         for batch, _ in test_loader:
             img_list.append(batch)
         images = torch.cat(img_list, dim=0)
+        z_fit = z_test
     elif is_baseline:
-        # Baselines operate in high-dim pixel space — fitting on full
-        # training set is too slow, so fit+predict on test data only.
+        # Baselines operate in high-dim pixel space — fit+predict on test only.
         z_test, labels_test, images = extract_features(
             model, model_type, test_loader, device, collect_images=True
         )
-        z_train = z_test
-    else:
-        # Neural models: fit GMM on training data, predict on test data
+        z_fit = z_test
+    elif fit_on_train:
+        # Ours: fit GMM on training data, predict on test data
         z_train, _, _ = extract_features(
             model, model_type, train_loader, device, collect_images=False
         )
         z_test, labels_test, images = extract_features(
             model, model_type, test_loader, device, collect_images=True
         )
+        z_fit = z_train
+    else:
+        # VAE-GMM: fit+predict on test data (matches training eval protocol)
+        z_test, labels_test, images = extract_features(
+            model, model_type, test_loader, device, collect_images=True
+        )
+        z_fit = z_test
 
-    # Fit GMM on train data (or test data for baselines), predict on test data
     n_init = 1 if is_baseline else 10
-    gmm, _ = fit_gmm(z_train, num_clusters, covariance_type, n_init=n_init)
+    gmm, _ = fit_gmm(z_fit, num_clusters, covariance_type, n_init=n_init)
     cluster_labels = gmm.predict(z_test)
 
     return {

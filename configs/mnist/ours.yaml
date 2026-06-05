@@ -1,13 +1,13 @@
-# CLAST (Laplacian) on MNIST
+# Ours (Laplacian) on MNIST
 # Exact hyperparameters from paper experiments
 
 experiment:
-  name: "mnist_clast"
+  name: "mnist_ours"
   seed: 42
   results_dir: "./results"
 
 model:
-  name: "clast"
+  name: "ours"
   latent_dim: 10
   num_clusters: 10
 
@@ -25,7 +25,7 @@ training:
   device: "cuda"
   grad_clip_max_norm: 5.0
 
-clast:
+ours:
   overwrite_epoch: 20
   refit_n_init: 10
   refit_covariance_type: "full"

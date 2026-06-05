@@ -1,5 +1,5 @@
 """
-Cardiac decoder (128×128 images) for CLAST model.
+Cardiac decoder (128×128 images) for Ours model.
 5-stage upsampling: 4×4 → 8×8 → 16×16 → 32×32 → 64×64 → 128×128
 """
 

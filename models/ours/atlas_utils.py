@@ -1,5 +1,5 @@
 """
-Atlas generation and cluster analysis utilities for CLAST.
+Atlas generation and cluster analysis utilities for Ours.
 
 This module contains functions for:
 - Pixel-space robust median atlases (Scheme-A)

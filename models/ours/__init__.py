@@ -1,5 +1,5 @@
 """
-CLAST (Clustering with Latent Atlas Selection & Training) models.
+Ours (Clustering with Latent Atlas Selection & Training) models.
 Factory function for creating StaticGMMVAE with appropriate encoder/decoder.
 """
 
@@ -12,7 +12,7 @@ DATASET_TO_SIZE = {
 
 def get_model(config):
     """
-    Get CLAST model with appropriate encoder/decoder for the dataset.
+    Get Ours model with appropriate encoder/decoder for the dataset.
 
     Args:
         config: Configuration dict containing dataset info

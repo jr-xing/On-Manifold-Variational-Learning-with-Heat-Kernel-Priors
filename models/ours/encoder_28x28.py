@@ -1,5 +1,5 @@
 """
-MNIST encoder (28×28 images) for CLAST model.
+MNIST encoder (28×28 images) for Ours model.
 2-stage downsampling: 28×28 → 14×14 → 7×7
 """
 

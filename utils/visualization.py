@@ -156,7 +156,7 @@ def plot_training_curves_separate(metrics_history: dict, save_path: str, use_log
     loss_keys = ['recon_loss', 'kl_loss', 'gmm_loss', 'trajectory_loss', 'jacobian_loss', 'total_loss']
     metric_keys = ['accuracy', 'nmi', 'ari']
 
-    # Also check for train/test variants (used in CLAST)
+    # Also check for train/test variants used by our method.
     train_metric_keys = ['train_accuracy', 'train_nmi', 'train_ari']
     test_metric_keys = ['test_accuracy', 'test_nmi', 'test_ari']
 
@@ -228,7 +228,7 @@ def plot_training_curves_separate(metrics_history: dict, save_path: str, use_log
         ax.set_ylim([0, 1.05])
         plot_idx += 1
     elif available_train_metrics or available_test_metrics:
-        # CLAST-style train/test metrics
+        # Train/test metrics from our method.
         ax = axes[plot_idx]
 
         # Plot train metrics

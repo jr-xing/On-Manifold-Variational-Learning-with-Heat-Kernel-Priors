@@ -23,7 +23,6 @@ training:
   epochs: 100
   learning_rate: 0.001
   device: "cuda"
-  eval_gmm_covariance: "diag"
 
 loss_weights:
   reconstruction: 1.0

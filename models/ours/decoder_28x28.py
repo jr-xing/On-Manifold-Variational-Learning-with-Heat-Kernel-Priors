@@ -1,5 +1,5 @@
 """
-MNIST decoder (28×28 images) for CLAST model.
+MNIST decoder (28×28 images) for Ours model.
 2-stage upsampling: 7×7 → 14×14 → 28×28
 """
 
